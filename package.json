@@ -1,6 +1,6 @@
 {
     "name": "downpour",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Get TV & Movie info from downloaded file names",
     "repository": "markmals/downpour-js",
     "license": "MIT",
