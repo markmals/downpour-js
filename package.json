@@ -1,8 +1,8 @@
 {
-    "name": "lib-name",
-    "version": "0.0.0",
-    "description": "",
-    "repository": "markmals/lib-name",
+    "name": "downpour",
+    "version": "0.1.0",
+    "description": "Get TV & Movie info from downloaded file names",
+    "repository": "markmals/downpour-js",
     "license": "MIT",
     "sideEffects": false,
     "type": "module",

@@ -1,3 +1,2 @@
-export function testFunction(name: string) {
-    return `Hello ${name}`;
-}
+export { default } from "./downpour.js";
+export type { MediaType } from "./downpour.js";
