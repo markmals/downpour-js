@@ -2,6 +2,15 @@
     "name": "downpour",
     "version": "0.1.1",
     "description": "Get TV & Movie info from downloaded file names",
+    "keywords": [
+        "media",
+        "metadata",
+        "movies",
+        "tv shows",
+        "television",
+        "torrent",
+        "plex"
+    ],
     "repository": "markmals/downpour-js",
     "license": "MIT",
     "sideEffects": false,
