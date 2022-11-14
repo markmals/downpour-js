@@ -1,6 +1,6 @@
 # Downpour
 
-Downpour is a TypeScript port of the [Swift library of the same name](https://github.com/markmals/Downpour).
+Downpour is a TypeScript port of the [Swift library of the same name](https://github.com/Ponyboy47/Downpour).
 
 Downpour can gather the following from a raw video name:
 
