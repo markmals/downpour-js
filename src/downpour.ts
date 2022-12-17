@@ -1,4 +1,4 @@
-import { cleanString, pad } from "./utilities.js";
+import { cleanString } from "./utilities.js";
 
 const PATTERN = {
     pretty: /S(\d{4}|\d{1,2})[\-\.\s_]?E\d{1,2}/i,
@@ -231,8 +231,7 @@ export default class Downpour {
     }
 
     private format(number?: number): string | undefined {
-        if (number) return String(pad(number));
-        return undefined;
+        return number ? `${number}`.padStart(2, "0") : undefined;
     }
 
     /**
