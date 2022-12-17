@@ -44,6 +44,9 @@ describe("tv shows", () => {
             expect(metadata.season).toEqual(1);
             expect(metadata.episode).toEqual(2);
             expect(metadata.basicPlexName).toEqual("Show Name - S01E02");
+            expect(metadata.formattedSeason).toEqual("01");
+            expect(metadata.formattedEpisode).toEqual("02");
+            expect(metadata.formattedSeasonEpisode).toEqual("S01E02");
         });
 
         test("correctly identified as a tv show", () => {
@@ -219,10 +222,6 @@ describe("tv shows", () => {
         test("correctly identified as a tv show", () => {
             expect(metadata.type).toEqual("tv");
         });
-
-        // test("correctly extracted the year from the season number", () => {
-        //     expect(metadata.year).toEqual(2005);
-        // });
     });
 
     describe("given a name with lowercase s and e", () => {
