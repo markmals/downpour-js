@@ -223,7 +223,7 @@ export default class Downpour {
         return "movie";
     }
 
-    /** The year number */
+    /** The year the movie or show premired */
     public get year(): number | undefined {
         const matches = this.rawString.match(PATTERN.year);
         if (!matches) return undefined;
@@ -235,17 +235,29 @@ export default class Downpour {
         return undefined;
     }
 
-    /** The season, with at most one leading zero */
+    /**
+     * The season, with at most one leading zero
+     * 
+     * @example 01
+     */
     public get formattedSeason(): string | undefined {
         return this.format(this.season);
     }
 
-    /** The episode, with at most one leading zero */
+    /**
+     * The episode, with at most one leading zero
+     * 
+     * @example 05
+     */
     public get formattedEpisode(): string | undefined {
         return this.format(this.episode);
     }
 
-    /** Both the season and the episode together, in the format "S##E##" */
+    /**
+     * Both the season and the episode together
+     * 
+     * @example "S##E##"
+     */
     public get formattedSeasonEpisode(): string {
         let season = "";
         let episode = "";
@@ -257,9 +269,10 @@ export default class Downpour {
     }
 
     /**
-     * The basic name file name in the Plex Media Server format of "Name (Year) - S##E##"
+     * The basic name file name in the Plex Media Server
      *
      * More information on the [Plex Media Server file naming format](https://support.plex.tv/articles/200220687-naming-series-season-based-tv-shows/)
+     * @example "Name (Year) - S##E##"
      */
     public get basicPlexName(): string {
         let yearDesc = "";
