@@ -22,6 +22,8 @@ const PATTERNS = {
     year: /[\(?:\.\s_\[](?:19|(?:[2-9])(?:[0-9]))\d{2}[\]\s_\.\)]/i,
     /** @example 1080p / 720p / … / 4K … */
     resolution: /(?:480p|540p|720p|1080p|4k|8k)/i,
+    /** @example S01E02.From.You.2000.Years.Ago.1080p */
+    episodeTitle: /\d{1,2}[\-\.\s_](.+)[\-\.\s_](?:480p|540p|720p|1080p|4k|8k)/
 };
 
 const SPLIT_CHARSET = /e|E|x|X|-|\.|_/;
@@ -231,6 +233,16 @@ export default class Downpour {
         }
 
         return Number(cleanString(pieces[i]));
+    }
+
+    /** The title of the eipsode */
+    public get episodeTitle(): string | undefined {
+        if (!this.seasonEpisode) return undefined;
+        if (!this.resolution) return undefined;
+
+        const matches = this.rawString.match(PATTERNS.episodeTitle);
+        if (!matches) return undefined;
+        return cleanString(matches[1]);
     }
 
     /** The type of the media */

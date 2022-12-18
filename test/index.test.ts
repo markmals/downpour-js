@@ -57,6 +57,30 @@ describe("tv shows", () => {
         });
     });
 
+    describe("given a name with an episode title", () => {
+        let metadata = new Downpour("Rick.and.Morty.S06E05.Final.DeSmithation.1080p.HMAX.WEB-DL.DD5.1.x264-NTb");
+
+        test("correct metadata extracted", () => {
+            expect(metadata.resolution).toEqual("1080p");
+            expect(metadata.title).toEqual("Rick and Morty");
+            expect(metadata.season).toEqual(6);
+            expect(metadata.episode).toEqual(5);
+            expect(metadata.basicPlexName).toEqual("Rick and Morty - S06E05");
+            expect(metadata.formattedSeason).toEqual("06");
+            expect(metadata.formattedEpisode).toEqual("05");
+            expect(metadata.formattedSeasonEpisode).toEqual("S06E05");
+        });
+
+        test("episode name extracted", () => {
+            expect(metadata.episodeTitle).toEqual("Final DeSmithation");
+        });
+
+        test("correctly identified as a tv show", () => {
+            expect(metadata.type).toEqual("tv");
+            expect(metadata.year).toBeUndefined();
+        });
+    });
+
     describe("given a show with an honorific in the title", () => {
         let metadata = new Downpour("Mr.Show.Name.S01E02.Source.Quality.Etc-Group");
 
