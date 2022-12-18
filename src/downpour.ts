@@ -1,20 +1,23 @@
 import { cleanString } from "./utilities.js";
 
 const PATTERNS = {
-    /** @example S01E02 / S01-E02 / S01.E02 / S01 E02 / s01e02 … */
-    pretty: /S(\d{4}|\d{1,2})[\-\.\s_]?E\d{1,2}/i,
-    /** @example Foo 1x02 / some other weirdness */
-    tricky: /[^\d](\d{4}|\d{1,2})[X\-\.\s_]\d{1,2}([^\d]|$)/i,
-    /** @example S01x02 / S2015x02 / … */
-    combined: /(?:S)?(\d{4}|\d{1,2})[EX\-\.\s_]\d{1,2}([^\d]|$)/i,
-    /** @example Season 1 Episode 2 / Season 01 Episode 02 / … */
-    altSeason: /Season (\d{4}|\d{1,2}) Episode \d{1,2}/i,
-    /** @example Season 1 / Season 01 */
-    altSeasonSingle: /Season (\d{4}|\d{1,2})/i,
-    /** @example Episode 2 / Episode 02 */
-    altEpisodeSingle: /Episode \d{1,2}/i,
-    /** @example Foo.102.Bar */
-    altSeason2: /[\s_\.\-\[]\d{3}[\s_\.\-\]]/i,
+    seasonEpisode: {
+        /** @example S01E02 / S01-E02 / S01.E02 / S01 E02 / s01e02 … */
+        pretty: /S(\d{4}|\d{1,2})[\-\.\s_]?E\d{1,2}/i,
+        /** @example Foo 1x02 / some other weirdness */
+        tricky: /[^\d](\d{4}|\d{1,2})[X\-\.\s_]\d{1,2}([^\d]|$)/i,
+        /** @example S01x02 / S2015x02 / … */
+        combined: /(?:S)?(\d{4}|\d{1,2})[EX\-\.\s_]\d{1,2}([^\d]|$)/i,
+        /** @example Season 1 Episode 2 / Season 01 Episode 02 / … */
+        altSeason: /Season (\d{4}|\d{1,2}) Episode \d{1,2}/i,
+        /** @example Season 1 / Season 01 */
+        altSeasonSingle: /Season (\d{4}|\d{1,2})/i,
+        /** @example Episode 2 / Episode 02 */
+        altEpisodeSingle: /Episode \d{1,2}/i,
+        /** @example Foo.102.Bar */
+        altSeason2: /[\s_\.\-\[]\d{3}[\s_\.\-\]]/i,
+    },
+
     /** @example Foo.2015.Bar */
     year: /[\(?:\.\s_\[](?:19|(?:[2-9])(?:[0-9]))\d{2}[\]\s_\.\)]/i,
 };
@@ -111,11 +114,11 @@ export default class Downpour {
         let match: string | undefined = undefined;
         let patternMatched: string | undefined = undefined;
 
-        for (const pattern in PATTERNS) {
+        for (const pattern in PATTERNS.seasonEpisode) {
             if (pattern === "year") continue;
 
             // @ts-ignore
-            const _match = this.rawString.match(PATTERNS[pattern]);
+            const _match = this.rawString.match(PATTERNS.seasonEpisode[pattern]);
             if (_match && _match[0]) {
                 match = _match[0];
                 patternMatched = pattern;
@@ -163,7 +166,7 @@ export default class Downpour {
         const seasonLabel = /Season /i;
 
         if (both.match(seasonLabel)) {
-            const match = this.rawString.match(PATTERNS.altSeasonSingle);
+            const match = this.rawString.match(PATTERNS.seasonEpisode.altSeasonSingle);
             if (!match) return undefined;
             const string = match[0];
 
@@ -200,7 +203,7 @@ export default class Downpour {
         const episodeLabel = /Episode /i;
 
         if (both.match(episodeLabel)) {
-            const match = this.rawString.match(PATTERNS.altEpisodeSingle);
+            const match = this.rawString.match(PATTERNS.seasonEpisode.altEpisodeSingle);
             if (!match) return undefined;
             const string = match[0];
 
