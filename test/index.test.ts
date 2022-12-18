@@ -1,5 +1,6 @@
 import { describe, expect, test } from "vitest";
 import Downpour from "../src";
+import { cleanString } from '../src/utilities';
 
 describe("movies", () => {
     describe("given a name with periods", () => {
@@ -68,10 +69,15 @@ describe("tv shows", () => {
             expect(metadata.year).toBeUndefined();
         });
 
-        // test("preserves the period for honorifics in the title", () => {
-        //     expect(metadata.title).toEqual("Mr. Show Name");
-        //     expect(metadata.basicPlexName).toEqual("Mr. Show Name - S01E02");
-        // });
+        test("preserves the period for honorifics in the title", () => {
+            expect(metadata.title).toEqual("Mr. Show Name");
+            expect(metadata.basicPlexName).toEqual("Mr. Show Name - S01E02");
+        });
+
+        test("correctly parse out periods preserving Mr./Mrs./etc", () => {
+            expect(cleanString("Mr.and.Mrs.Smith")).toEqual("Mr. and Mrs. Smith");
+            expect(cleanString("Mr.Bean's.Holiday")).toEqual("Mr. Bean's Holiday");
+        });
     });
 
     describe("given an already correctly formatted name", () => {

@@ -8,9 +8,13 @@ export function cleanString(str: string): string {
         ""
     );
 
-    cleanedString = cleanedString.replaceAll(".", " ");
-    cleanedString = cleanedString.replaceAll("_", " ");
-    cleanedString = cleanedString.trim();
+    cleanedString = cleanedString
+        // "Mr.Bean's.Holiday" -> "Mr.Bean's Holiday"
+        .replaceAll(/(?<!(dr|mr|mrs|ms|phd))\./gi, ' ')
+        // "Mr.Bean's Holiday" -> "Mr. Bean's Holiday"
+        .replaceAll(/(dr|mr|mrs|ms|phd)\./gi, '$1. ')
+        .replaceAll("_", " ")
+        .trim();
     // console.log(cleanedString)
     return cleanedString;
 }
