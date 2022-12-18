@@ -20,11 +20,14 @@ const PATTERNS = {
 
     /** @example Foo.2015.Bar */
     year: /[\(?:\.\s_\[](?:19|(?:[2-9])(?:[0-9]))\d{2}[\]\s_\.\)]/i,
+    /** @example 1080p / 720p / … / 4K … */
+    resolution: /(?:480p|540p|720p|1080p|4k|8k)/i,
 };
 
 const SPLIT_CHARSET = /e|E|x|X|-|\.|_/;
 
 export type MediaType = "movie" | "tv";
+export type Resolution = "480p" | "540p" | "720p" | "1080p" | "4K" | "8K";
 
 export default class Downpour {
     private rawString: string;
@@ -46,6 +49,12 @@ export default class Downpour {
             null,
             4
         );
+    }
+
+    public get resolution(): Resolution | undefined {
+        const matches = this.rawString.match(PATTERNS.resolution);
+        if (!matches) return undefined;
+        return cleanString(matches[0].replace('k', 'K')) as Resolution;
     }
 
     /** The title of the media */

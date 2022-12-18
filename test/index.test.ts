@@ -9,6 +9,7 @@ describe("movies", () => {
         test("correct metadata extracted", () => {
             expect(metadata.title).toEqual("Movie Name");
             expect(metadata.year).toEqual(2013);
+            expect(metadata.resolution).toEqual("1080p");
             expect(metadata.basicPlexName).toEqual("Movie Name (2013)");
         });
 
