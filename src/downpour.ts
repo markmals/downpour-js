@@ -1,13 +1,21 @@
 import { cleanString } from "./utilities.js";
 
-const PATTERN = {
+const PATTERNS = {
+    /** @example S01E02 / S01-E02 / S01.E02 / S01 E02 / s01e02 … */
     pretty: /S(\d{4}|\d{1,2})[\-\.\s_]?E\d{1,2}/i,
+    /** @example Foo 1x02 / some other weirdness */
     tricky: /[^\d](\d{4}|\d{1,2})[X\-\.\s_]\d{1,2}([^\d]|$)/i,
+    /** @example S01x02 / S2015x02 / … */
     combined: /(?:S)?(\d{4}|\d{1,2})[EX\-\.\s_]\d{1,2}([^\d]|$)/i,
+    /** @example Season 1 Episode 2 / Season 01 Episode 02 / … */
     altSeason: /Season (\d{4}|\d{1,2}) Episode \d{1,2}/i,
+    /** @example Season 1 / Season 01 */
     altSeasonSingle: /Season (\d{4}|\d{1,2})/i,
+    /** @example Episode 2 / Episode 02 */
     altEpisodeSingle: /Episode \d{1,2}/i,
+    /** @example Foo.102.Bar */
     altSeason2: /[\s_\.\-\[]\d{3}[\s_\.\-\]]/i,
+    /** @example Foo.2015.Bar */
     year: /[\(?:\.\s_\[](?:19|(?:[2-9])(?:[0-9]))\d{2}[\]\s_\.\)]/i,
 };
 
@@ -98,16 +106,16 @@ export default class Downpour {
         return cleanString(this.rawString);
     }
 
-    /** Used internally for determining other metadata */
+    /** `season` and `episode` are computed from the result of this method */
     private get seasonEpisode(): string | undefined {
         let match: string | undefined = undefined;
         let patternMatched: string | undefined = undefined;
 
-        for (const pattern in PATTERN) {
+        for (const pattern in PATTERNS) {
             if (pattern === "year") continue;
 
             // @ts-ignore
-            const _match = this.rawString.match(PATTERN[pattern]);
+            const _match = this.rawString.match(PATTERNS[pattern]);
             if (_match && _match[0]) {
                 match = _match[0];
                 patternMatched = pattern;
@@ -155,7 +163,7 @@ export default class Downpour {
         const seasonLabel = /Season /i;
 
         if (both.match(seasonLabel)) {
-            const match = this.rawString.match(PATTERN.altSeasonSingle);
+            const match = this.rawString.match(PATTERNS.altSeasonSingle);
             if (!match) return undefined;
             const string = match[0];
 
@@ -192,7 +200,7 @@ export default class Downpour {
         const episodeLabel = /Episode /i;
 
         if (both.match(episodeLabel)) {
-            const match = this.rawString.match(PATTERN.altEpisodeSingle);
+            const match = this.rawString.match(PATTERNS.altEpisodeSingle);
             if (!match) return undefined;
             const string = match[0];
 
@@ -225,7 +233,7 @@ export default class Downpour {
 
     /** The year the movie or show premired */
     public get year(): number | undefined {
-        const matches = this.rawString.match(PATTERN.year);
+        const matches = this.rawString.match(PATTERNS.year);
         if (!matches) return undefined;
         return parseInt(cleanString(matches[0]));
     }
