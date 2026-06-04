@@ -1,22 +1,47 @@
 import { cleanString } from "./utilities.js";
 
-const PATTERN = {
-    pretty: /S(\d{4}|\d{1,2})[\-\.\s_]?E\d{1,2}/i,
-    tricky: /[^\d](\d{4}|\d{1,2})[X\-\.\s_]\d{1,2}([^\d]|$)/i,
-    combined: /(?:S)?(\d{4}|\d{1,2})[EX\-\.\s_]\d{1,2}([^\d]|$)/i,
-    altSeason: /Season (\d{4}|\d{1,2}) Episode \d{1,2}/i,
-    altSeasonSingle: /Season (\d{4}|\d{1,2})/i,
-    altEpisodeSingle: /Episode \d{1,2}/i,
-    altSeason2: /[\s_\.\-\[]\d{3}[\s_\.\-\]]/i,
-    year: /[\(?:\.\s_\[](?:19|(?:[2-9])(?:[0-9]))\d{2}[\]\s_\.\)]/i,
-};
-
-const SPLIT_CHARSET = /e|E|x|X|-|\.|_/;
-
 export type MediaType = "movie" | "tv";
+
+/** Result of locating and decoding the season/episode region of a name. */
+interface SeasonEpisode {
+    season?: number;
+    episode?: number;
+    /** Start index in the raw string of the season/episode token, for title trimming. */
+    index?: number;
+    /** End index (exclusive) of the season/episode token. */
+    end?: number;
+}
+
+/**
+ * Resolution/codec/source tokens, matched globally on a word boundary. Used ONLY by
+ * `title`: a movie with no year and no S/E marker is trimmed at the first tag, but only
+ * when at least two tags cluster together — a lone word that merely collides with a tag
+ * (e.g. "The Bluray Sunset") must not truncate the title.
+ *
+ * NOTE: this list does NOT gate season/episode detection — that is `CODE_EXCLUDE`'s job.
+ */
+const RELEASE_TAG =
+    /(?:^|[^a-z0-9])(1080p|2160p|720p|480p|576p|360p|240p|bluray|brrip|bdrip|web-?dl|webrip|hdtv|hdrip|dvdrip|x264|x265|h264|h265|hevc|xvid|divx|aac|ac3|dts|remastered|repack)/gi;
+
+/**
+ * Bare 3-digit values that are resolutions/codecs, never a season+episode code. A trailing
+ * "p" (e.g. 360p) is rejected separately by the matcher's lookahead, so this set only needs
+ * the resolution/codec numbers that also appear without the "p".
+ */
+const CODE_EXCLUDE = new Set(["144", "240", "264", "265", "360", "480", "576", "720"]);
+
+/** Earliest plausible release year. */
+const MIN_YEAR = 1900;
+
+/** Highest year we will accept — a small buffer past the current year for early releases. */
+function maxYear(): number {
+    return new Date().getFullYear() + 2;
+}
 
 export default class Downpour {
     private rawString: string;
+    private _seasonEpisode?: SeasonEpisode;
+    private _yearMatch?: { value: number; index: number } | null;
 
     public constructor(name: string) {
         this.rawString = name;
@@ -39,109 +64,85 @@ export default class Downpour {
 
     /** The title of the media */
     public get title(): string {
-        let tempTitle: string | undefined;
+        const se = this.seasonEpisode;
+        const year = this.yearMatch;
 
-        switch (this.type) {
-            case "movie": {
-                if (this.year) {
-                    tempTitle = this.rawString.substring(
-                        0,
-                        this.rawString.indexOf(String(this.year)) - 1
-                    );
-                } else {
-                    tempTitle = undefined;
-                }
+        // Metadata spans to trim away. Only trim at a season/episode marker when the file
+        // is actually TV — a stray "Episode"/3-digit token in a movie name must not cut it.
+        const markers: Array<{ start: number; end: number }> = [];
+        if (this.type === "tv" && se.index !== undefined && se.end !== undefined) {
+            markers.push({ start: se.index, end: se.end });
+        }
+        if (year) markers.push({ start: year.index, end: year.index + 4 });
 
-                break;
-            }
-            case "tv": {
-                if (
-                    // if seasonEpisode exists
-                    this.seasonEpisode &&
-                    // if seasonEpisode is in rawString
-                    this.rawString.includes(this.seasonEpisode) &&
-                    // if seasonEpisode is not at the beginning of rawString
-                    this.rawString.substr(0, this.seasonEpisode.length) !== this.seasonEpisode
-                ) {
-                    // Find the index of the first character of seasonEpisode in rawString
-                    const endIndex = this.rawString.indexOf(this.seasonEpisode);
-                    // Get the substring of rawString up to the first character of seasonEpisode
-                    let string = this.rawString.substring(0, endIndex - 1);
-
-                    if (this.year) {
-                        const yearEndIndex = this.rawString.indexOf(String(this.year));
-                        // Get the substring of string up to the first character of year
-                        // e.g. remove this.year from string
-                        string = string.substring(0, yearEndIndex - 1);
-                    }
-
-                    tempTitle = string;
-                } else {
-                    tempTitle = undefined;
-                }
+        // Year-less, marker-less movie: trim at a CLUSTER of release tags (>= 2) so a single
+        // ordinary word that collides with a tag does not truncate the title.
+        if (markers.length === 0) {
+            const tags = [...this.rawString.matchAll(RELEASE_TAG)];
+            if (tags.length >= 2) {
+                const t = tags[0];
+                const start = (t.index ?? 0) + t[0].length - t[1].length;
+                if (start > 0) markers.push({ start, end: start + t[1].length });
             }
         }
 
-        if (tempTitle) {
-            let clean = cleanString(tempTitle);
+        if (markers.length === 0) return cleanString(this.rawString);
 
-            const uncleanMatch = tempTitle.match(/\d+\.\d+/);
-            const tooCleanMatch = clean.match(/\d+ \d+/);
+        markers.sort((a, b) => a.start - b.start);
 
-            if (uncleanMatch && tooCleanMatch && uncleanMatch[0] === tooCleanMatch[0]) {
-                clean = clean.replaceAll(tooCleanMatch[0], uncleanMatch[0]);
-            }
+        // Prefer the text before the first marker.
+        const before = cleanString(this.rawString.substring(0, markers[0].start));
+        if (before) return before;
 
-            return clean;
-        }
+        // Marker leads the string: take the text after the last marker instead.
+        const lastEnd = Math.max(...markers.map(m => m.end));
+        const after = cleanString(this.rawString.substring(lastEnd));
+        if (after) return after;
 
-        return cleanString(this.rawString);
+        // The string is nothing but metadata — there is no title.
+        return "";
     }
 
-    /** Used internally for determining other metadata */
-    private get seasonEpisode(): string | undefined {
-        let match: string | undefined = undefined;
-        let patternMatched: string | undefined = undefined;
+    /** Located season/episode region (memoized — rawString is fixed at construction). */
+    private get seasonEpisode(): SeasonEpisode {
+        return (this._seasonEpisode ??= this.computeSeasonEpisode());
+    }
 
-        for (const pattern in PATTERN) {
-            if (pattern === "year") continue;
+    private computeSeasonEpisode(): SeasonEpisode {
+        const s = this.rawString;
+        // Build a result given a match whose trailing capture `token` is the S/E text.
+        const span = (
+            m: RegExpMatchArray,
+            token: string,
+            season: number,
+            episode: number
+        ): SeasonEpisode => {
+            const index = (m.index ?? 0) + m[0].length - token.length;
+            return { season, episode, index, end: index + token.length };
+        };
 
-            // @ts-ignore
-            const _match = this.rawString.match(PATTERN[pattern]);
-            if (_match && _match[0]) {
-                match = _match[0];
-                patternMatched = pattern;
-                break;
-            }
+        // S01E02 / S2005E01 / S01.E03 / s05e01 / S01E100 (anime absolute numbering)
+        let m = s.match(/(?:^|[^a-z0-9])(s(\d{1,4})[\-\.\s_]?e(\d{1,3}))/i);
+        if (m) return span(m, m[1], Number(m[2]), Number(m[3]));
+
+        // "Season 2 Episode 5" (space/dot/underscore separated). Both labels are required,
+        // adjacent, and anchored so "Preseason 2" / a lone "Season 3" do not match.
+        m = s.match(/(?:^|[^a-z0-9])(season[\s._]+(\d{1,4})[\s._]+episode[\s._]+(\d{1,3}))/i);
+        if (m) return span(m, m[1], Number(m[2]), Number(m[3]));
+
+        // 1x02 — two numbers joined by an explicit `x`. Requiring `x` keeps dates,
+        // audio tags ("5.1") and loose number pairs from being misread.
+        m = s.match(/(?<![a-z0-9])((\d{1,2})x(\d{1,2}))(?![0-9])/i);
+        if (m) return span(m, m[1], Number(m[2]), Number(m[3]));
+
+        // Bare 3-digit code: 102 -> S01E02. Skip resolution/codec values and any NNNp token.
+        for (const c of s.matchAll(/(?<![a-z0-9])(\d)(\d{2})(?![0-9p])/gi)) {
+            if (CODE_EXCLUDE.has(c[1] + c[2])) continue;
+            const index = c.index ?? 0;
+            return { season: Number(c[1]), episode: Number(c[2]), index, end: index + 3 };
         }
 
-        if (!match || !patternMatched) {
-            return undefined;
-        }
-
-        let matchString: string | undefined = undefined;
-
-        switch (patternMatched) {
-            case "tricky": {
-                const lowerBound = this.rawString.indexOf(match) + 1;
-                const upperBound = this.rawString.lastIndexOf(match) - 1;
-                matchString = this.rawString.substring(lowerBound, upperBound);
-            }
-            case "combined": {
-                const lowerBound = this.rawString.indexOf(match);
-                const upperBound = this.rawString.lastIndexOf(match) - 1;
-                matchString = this.rawString.substring(lowerBound, upperBound);
-            }
-            case "altSeason2": {
-                const string = cleanString(match);
-                if (!["264", "720"].includes(string.substring(1, 3))) return string;
-                break;
-            }
-            default:
-                matchString = cleanString(match);
-        }
-
-        return matchString;
+        return {};
     }
 
     /**
@@ -150,35 +151,7 @@ export default class Downpour {
      * Not avaliable if `this.type` is `"movie"`
      */
     public get season(): number | undefined {
-        if (!this.seasonEpisode) return undefined;
-        const both = cleanString(this.seasonEpisode);
-        const seasonLabel = /Season /i;
-
-        if (both.match(seasonLabel)) {
-            const match = this.rawString.match(PATTERN.altSeasonSingle);
-            if (!match) return undefined;
-            const string = match[0];
-
-            return Number(cleanString(string.replace(String(seasonLabel), "")));
-        }
-
-        if (both.length === 3) {
-            return Number(cleanString(both.substring(1, 2)));
-        }
-
-        const pieces = both.split(SPLIT_CHARSET);
-
-        // If we didn't cause a split above, then the following code can not be
-        // reliably run
-        if (pieces.length < 1) return undefined;
-        const first = pieces[0];
-
-        // The size of the first part needs to be between 1 and 2
-        if (first.length <= 2 && first.length >= 1) {
-            return Number(cleanString(first));
-        }
-
-        return Number(cleanString(first.substring(1, first.length)));
+        return this.seasonEpisode.season;
     }
 
     /**
@@ -187,56 +160,53 @@ export default class Downpour {
      * Not avaliable if `this.type` is `"movie"`
      */
     public get episode(): number | undefined {
-        if (!this.seasonEpisode) return undefined;
-        const both = cleanString(this.seasonEpisode);
-        const episodeLabel = /Episode /i;
-
-        if (both.match(episodeLabel)) {
-            const match = this.rawString.match(PATTERN.altEpisodeSingle);
-            if (!match) return undefined;
-            const string = match[0];
-
-            return Number(cleanString(string.replace(String(episodeLabel), "")));
-        }
-
-        if (both.length === 3) {
-            return Number(cleanString(both.substring(1, 2)));
-        }
-
-        const pieces = both.split(SPLIT_CHARSET);
-        let i = 1;
-
-        while (pieces[i] === "" && i < pieces.length) {
-            i += 1;
-        }
-
-        return Number(cleanString(pieces[i]));
+        return this.seasonEpisode.episode;
     }
 
     /** The type of the media */
     public get type(): MediaType {
-        // The Swift version used to mistake the x/h 264 as season 2, episode 64.
-        // I don't know of any shows that have 64 episode in a single season, so
-        // checking that the episode < 64 should be safe and will resolve these
-        // false positives.
-        if (this.season && this.episode) return "tv";
-        return "movie";
+        const { season, episode } = this.seasonEpisode;
+        // Definedness, not truthiness: season 0 (Plex "Specials") and episode 0 are valid.
+        return season !== undefined && episode !== undefined ? "tv" : "movie";
+    }
+
+    /** Located release year (memoized): the last plausible delimited 4-digit token. */
+    private get yearMatch(): { value: number; index: number } | undefined {
+        if (this._yearMatch === undefined) this._yearMatch = this.computeYear() ?? null;
+        return this._yearMatch ?? undefined;
+    }
+
+    private computeYear(): { value: number; index: number } | undefined {
+        // Leading: start or a delimiter (incl. a dash, for `Title.YYYY-GROUP` scene names).
+        // `(?<!season )` keeps a year-style SEASON number ("Season 2009") from also being
+        // read as the release year. `(?!-\d{1,2}-\d)` rejects a YYYY-MM-DD date tail.
+        const re =
+            /(?:^|[\(\[._\s-])(?<!\bseason[\s._])(\d{4})(?![0-9])(?!-\d{1,2}-\d)(?=[\)\]._\s-]|$)/gi;
+        const max = maxYear();
+        let best: { value: number; index: number } | undefined;
+
+        for (const m of this.rawString.matchAll(re)) {
+            const value = Number(m[1]);
+            if (value < MIN_YEAR || value > max) continue;
+            best = { value, index: (m.index ?? 0) + m[0].length - m[1].length };
+        }
+
+        return best;
     }
 
     /** The year the movie or show premired */
     public get year(): number | undefined {
-        const matches = this.rawString.match(PATTERN.year);
-        if (!matches) return undefined;
-        return parseInt(cleanString(matches[0]));
+        return this.yearMatch?.value;
     }
 
     private format(number?: number): string | undefined {
-        return number ? `${number}`.padStart(2, "0") : undefined;
+        // Definedness, not truthiness, so 0 formats as "00" rather than vanishing.
+        return number === undefined ? undefined : `${number}`.padStart(2, "0");
     }
 
     /**
      * The season, with at most one leading zero
-     * 
+     *
      * @example 01
      */
     public get formattedSeason(): string | undefined {
@@ -245,7 +215,7 @@ export default class Downpour {
 
     /**
      * The episode, with at most one leading zero
-     * 
+     *
      * @example 05
      */
     public get formattedEpisode(): string | undefined {
@@ -254,7 +224,7 @@ export default class Downpour {
 
     /**
      * Both the season and the episode together
-     * 
+     *
      * @example "S##E##"
      */
     public get formattedSeasonEpisode(): string {
